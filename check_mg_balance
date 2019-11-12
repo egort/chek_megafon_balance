@@ -1,11 +1,13 @@
 #!/usr/bin/python -W ignore::DeprecationWarning
 # -*- coding: utf-8 -*-
+
 from time import time
 import requests
 from ast import literal_eval
 from argparse import ArgumentParser
 import urllib3
 urllib3.disable_warnings()
+import os
 
 cli_parse = ArgumentParser()
 cli_parse.add_argument('-u', '--user', type=int, help='User name. Format 10 digits.', required=True)
@@ -19,7 +21,6 @@ LOGIN_DATA = {'j_username': cli_args.user,
 ERRORS = {'OK': SystemExit(0),
           'WARNING': SystemExit(1),
           'CRITICAL': SystemExit(2)}
-
 
 def enter_to_lk(url, api):
     client = requests.session()
@@ -52,5 +53,23 @@ def enter_to_lk(url, api):
             raise ERRORS.get('CRITICAL')
     print('Баланс {0} руб.'.format(balance))
 
+wait4 = 3600 # 1 hour
+if os.path.exists('/tmp/timestamp'): # eval interval after last check
+    file = open('/tmp/timestamp', 'r+')
+    if (time() - float(file.read())) < wait4:
+        #print('dbg: less. exit')
+        file.close()
+        print('Too frequent requests! See number of [min.] between regularly scheduled checks.')
+        raise ERRORS.get('UNKNOWN')
+    else:
+        #print('dbg: more. continue') # update timestamp and continue
+        file.seek(0) # to purge timestamp
+        file.truncate()
+        file.write(str(time()))
+        file.close()
+else:
+    #print('dbg: just init. exit')
+    file = open('/tmp/timestamp','w') # first check - just init timestamp
+    file.write(str(time()))
 
 enter_to_lk('https://lk.megafon.ru/dologin/', 'https://lk.megafon.ru/api/lk/balance/get?')
